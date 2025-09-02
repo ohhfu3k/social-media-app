@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm install --frozen-lockfile=false && pnpm build",
+  "outputDirectory": "dist/spa",
+  "rewrites": [
+    { "source": "/((?!api).*)", "destination": "/" }
+  ]
+}

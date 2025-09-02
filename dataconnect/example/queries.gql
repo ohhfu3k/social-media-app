@@ -1,0 +1,31 @@
+mutation CreatePost @auth(level: USER) {
+  post_insert(data: {
+    userId_expr: "auth.uid",
+    contentUrl: "https://example.com/image.jpg",
+    postType: "image"
+  })
+}
+
+query GetMyPosts @auth(level: USER) {
+  posts(where: {userId: {eq_expr: "auth.uid"}}) {
+    id
+    contentUrl
+    caption
+  }
+}
+
+mutation FollowUser($followingId: UUID!) @auth(level: USER) {
+  follow_insert(data: {
+    followerId_expr: "auth.uid",
+    followingId: $followingId
+  })
+}
+
+query ListFollowers @auth(level: USER) {
+  follows(where: {followingId: {eq_expr: "auth.uid"}}) {
+    follower {
+      id
+      username
+    }
+  }
+}

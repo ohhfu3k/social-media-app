@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OtpChannel {
+  email
+  phone
+}
+
+enum OtpPurpose {
+  signup
+  reset
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  // Extended fields for Echostars notifications
+  actorId   String?
+  postId    String?
+  seen      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String?        @unique
+  phone         String?        @unique
+  passwordHash  String?
+  avatar        String?
+  username      String?        @unique
+  bio           String?
+  entranceStyle String?
+  linkedStars   Int            @default(0)
+  starlit       Int            @default(0)
+  location      String?
+  timezone      String?
+  gender        String?
+  pronouns      String?
+  theme         String?
+  isPrivate     Boolean        @default(false)
+  isActive      Boolean        @default(false)
+  emailVerified Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Echostars relations
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  bookmarks     Bookmark[]
+  followers     Follower[]     @relation("Followed")
+  following     Follower[]     @relation("Following")
+  stories       Story[]
+  notifications Notification[]
+
+  // Existing
+  profile       Profile?
+  refreshTokens RefreshToken[]
+  messagesAuthored Message[]   @relation("AuthoredMessages")
+}
+
+model Profile {
+  id              String   @id @default(cuid())
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String   @unique
+  username        String?
+  handle          String?
+  title           String?
+  bio             String?
+  profilePic      String?
+  linkedStars     Int      @default(0)
+  starlit         Int      @default(0)
+  postsJson       Json?
+  highlightsJson  Json?
+  achievementsJson Json?
+  connectionsJson Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Post {
+  id            String   @id @default(cuid())
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id])
+  type          PostType
+  text          String?  @db.Text
+  mediaUrl      String?
+  thumbUrl      String?
+  durationSec   Int?
+  isStarOfMonth Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  comments      Comment[]
+  likes         Like[]
+  bookmarks     Bookmark[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Follower {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  follower    User     @relation("Following", fields: [followerId], references: [id])
+  following   User     @relation("Followed", fields: [followingId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+model Story {
+  id         String   @id @default(cuid())
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  mediaUrl   String
+  thumbUrl   String?
+  expiresAt  DateTime
+  isHighlight Boolean @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Badge {
+  id     String @id @default(cuid())
+  code   String @unique
+  label  String
+  icon   String?
+  users  BadgeOnUser[]
+}
+
+model BadgeOnUser {
+  id       String @id @default(cuid())
+  userId   String
+  badgeId  String
+  user     User   @relation(fields: [userId], references: [id])
+  badge    Badge  @relation(fields: [badgeId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  convoId      String
+  participants String[]
+  author       User?    @relation("AuthoredMessages", fields: [authorId], references: [id])
+  authorId     String?
+  text         String
+  createdAt    DateTime @default(now())
+}
+
+model Otp {
+  id         String      @id @default(cuid())
+  channel    OtpChannel
+  identifier String
+  code       String
+  expiresAt  DateTime
+  used       Boolean     @default(false)
+  purpose    OtpPurpose?
+  createdAt  DateTime    @default(now())
+
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
