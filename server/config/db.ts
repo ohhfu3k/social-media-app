@@ -16,10 +16,12 @@ export async function connectDB() {
   if (sqlEnabled && !prismaReady) {
     try {
       const { PrismaClient } = await import("@prisma/client");
+      const datasources = env.PRISMA_DATABASE_URL ? { db: { url: env.PRISMA_DATABASE_URL } } : undefined as any;
       prisma = new PrismaClient({
         log: env.PRISMA_LOG_LEVEL === "debug" ? ["query", "info", "warn", "error"]
           : env.PRISMA_LOG_LEVEL === "info" ? ["info", "warn", "error"]
           : ["warn", "error"],
+        datasources,
       });
       await prisma.$connect();
       prismaReady = true;

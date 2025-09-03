@@ -68,6 +68,7 @@ model User {
   following     Follower[]     @relation("Following")
   stories       Story[]
   notifications Notification[]
+  badges         BadgeOnUser[]
 
   // Existing
   profile       Profile?
