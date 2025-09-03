@@ -2,11 +2,6 @@
   "version": 2,
   "buildCommand": "pnpm install --frozen-lockfile=false && pnpm build",
   "outputDirectory": "dist/spa",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "handle": "filesystem" },
