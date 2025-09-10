@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Volume2, VolumeX } from "lucide-react";
-
 export type StorySegment = {
   id: string;
   type: "image" | "video" | "audio";
@@ -24,6 +23,7 @@ export default function StoryViewer({ open, onClose, users, startUser }: { open:
   const [sIdx, setSIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [reply, setReply] = useState("");
   const pressRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
   const progRefs = useRef<HTMLDivElement[]>([]);
@@ -35,12 +35,30 @@ export default function StoryViewer({ open, onClose, users, startUser }: { open:
   const seg = segs[sIdx] || null;
   const duration = 4500; // 4.5s per segment default
   const starlit = user && user.kind === 'cosmic' ? ((user.id.length + segs.length) % 2 === 0) : false;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(()=>{ // handle preview playback per segment
+    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.remove(); audioRef.current = null; } } catch {}
+    if (!seg?.meta?.music?.previewUrl) return;
+    const a = new Audio(seg.meta.music.previewUrl as string);
+    a.volume = muted ? 0 : 1;
+    a.play().catch(()=>{});
+    audioRef.current = a;
+    return () => { try { a.pause(); } catch {} };
+  }, [sIdx, uIdx, muted]);
 
   // derive display name and handle
   const displayName = user?.name || seg?.meta?.authorName || (user?.kind === 'anonymous' ? 'Anonymous' : 'User');
   const handle = '@' + String(displayName).toLowerCase().replace(/[^a-z0-9]+/g, '');
 
   useEffect(() => { setSIdx(0); }, [uIdx]);
+
+  // Track views when a segment becomes active
+  useEffect(() => {
+    if (!open) return;
+    const current = segs[sIdx];
+    if (!current) return;
+    try { fetch(`/api/v1/stories/${encodeURIComponent(current.id)}/view`, { method: "POST" }); } catch {}
+  }, [open, sIdx, segs]);
 
   // Ensure viewer starts at the requested user whenever opened
   useEffect(() => {
@@ -97,6 +115,15 @@ export default function StoryViewer({ open, onClose, users, startUser }: { open:
         <motion.div className="fixed inset-0 z-[130]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950" />
           <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, rgba(99,102,241,0.2), transparent 40%), radial-gradient(circle at 80% 70%, rgba(236,72,153,0.18), transparent 40%)" }} />
+          {seg?.meta?.music && (
+            <div className="absolute left-1/2 bottom-8 -translate-x-1/2 rounded-full bg-black/60 backdrop-blur border border-white/10 px-3 py-2 flex items-center gap-2 z-20">
+              <img src={seg.meta.music.albumArt} className="h-8 w-8 rounded" />
+              <div className="text-xs">
+                <div className="font-semibold leading-4 truncate max-w-[50vw]">{seg.meta.music.name}</div>
+                <div className="text-white/70 leading-4 truncate max-w-[50vw]">{seg.meta.music.artists}</div>
+              </div>
+            </div>
+          )}
 
           {/* Top bar with Orbit Trail */}
           <div className="absolute top-0 left-0 right-0 px-3 pt-5 z-30 pointer-events-auto" onClick={(e)=>e.stopPropagation()} onMouseDown={(e)=>e.stopPropagation()}>
@@ -187,9 +214,18 @@ export default function StoryViewer({ open, onClose, users, startUser }: { open:
           {/* Reply bar */}
           {user.kind === 'cosmic' && (
             <div className="absolute bottom-4 left-0 right-0 px-4">
-              <div className="mx-auto max-w-md flex items-center gap-2">
-                <input className="flex-1 h-10 rounded-full bg-black/40 border border-white/20 px-3 text-sm" placeholder="Send a Star Reply ✨" />
-                <button className="h-10 px-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-indigo-500 border border-white/10 text-sm shadow-[0_0_18px_rgba(236,72,153,0.5)]">Send</button>
+              <div className="mx-auto max-w-md space-y-2">
+                <div className="flex items-center gap-2 justify-center">
+                  {['❤️','🔥','😂','😢','👏','👍'].map((e)=> (
+                    <button key={e} onClick={(ev)=>{ ev.stopPropagation(); try { fetch(`/api/v1/stories/${encodeURIComponent(seg.id)}/react`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji: e }) }); } catch {} }} className="h-8 px-3 rounded-full border border-white/20 bg-black/20 text-sm">
+                      {e}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input value={reply} onChange={(e)=>setReply(e.target.value)} className="flex-1 h-10 rounded-full bg-black/40 border border-white/20 px-3 text-sm" placeholder="Send a Star Reply ✨" />
+                  <button onClick={(e)=>{ e.stopPropagation(); const text = reply.trim(); if (!text) return; setReply(""); try { const to = user?.name || seg.meta?.authorName || 'User'; fetch(`/api/messages/story-${encodeURIComponent(user.id)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, to }) }); } catch {} }} className="h-10 px-3 rounded-full bg-gradient-to-r from-pink-500 via-fuchsia-500 to-indigo-500 border border-white/10 text-sm shadow-[0_0_18px_rgba(236,72,153,0.5)]">Send</button>
+                </div>
               </div>
             </div>
           )}

@@ -19,7 +19,8 @@
     "test": "vitest --run --config vitest.config.ts",
     "format.fix": "prettier --write .",
     "typecheck": "tsc",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "deploy:netlify": "node scripts/trigger-netlify-build.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.15.0",

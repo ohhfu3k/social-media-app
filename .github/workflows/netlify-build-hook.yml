@@ -1,0 +1,24 @@
+name: Netlify Build Hook
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: netlify-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Netlify build
+        env:
+          NETLIFY_BUILD_HOOK_URL: ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
+        run: |
+          if [ -z "$NETLIFY_BUILD_HOOK_URL" ]; then
+            echo "NETLIFY_BUILD_HOOK_URL secret is not set" >&2
+            exit 1
+          fi
+          curl -s -X POST -H 'Content-Type: application/json' -d '{}' "$NETLIFY_BUILD_HOOK_URL" -o /dev/null -w '%{http_code}\n' | grep -q '^200$'

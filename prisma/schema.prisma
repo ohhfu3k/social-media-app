@@ -24,6 +24,11 @@ enum PostType {
   VIDEO
 }
 
+enum Universe {
+  NORMAL
+  ANONYMOUS
+}
+
 model Notification {
   id        String   @id @default(cuid())
   type      String
@@ -100,6 +105,7 @@ model Post {
   authorId      String
   author        User     @relation(fields: [authorId], references: [id])
   type          PostType
+  universe      Universe @default(NORMAL)
   text          String?  @db.Text
   mediaUrl      String?
   thumbUrl      String?
@@ -141,6 +147,19 @@ model Bookmark {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Energy {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  value     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([postId, userId])
 }
@@ -190,6 +209,7 @@ model Message {
   id           String   @id @default(cuid())
   convoId      String
   participants String[]
+  universe     Universe @default(NORMAL)
   author       User?    @relation("AuthoredMessages", fields: [authorId], references: [id])
   authorId     String?
   text         String

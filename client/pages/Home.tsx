@@ -83,6 +83,13 @@ export default function Home() {
   const [viewerStartUser, setViewerStartUser] = useState(0);
 
   const buildViewerUsers = (): StoryUser[] => {
+    // Try server feed first
+    const key = `viewer_feed_${anonymous ? 'anon' : 'auth'}`;
+    const cached = sessionStorage.getItem(key);
+    if (cached) {
+      try { const parsed = JSON.parse(cached); if (Array.isArray(parsed?.users)) return parsed.users; } catch {}
+    }
+    // Fallback: local mock + localStorage entries
     const entriesRaw = localStorage.getItem("home_stories_user_entries");
     const entries: any[] = entriesRaw ? JSON.parse(entriesRaw) : [];
     const now = Date.now();
@@ -104,9 +111,7 @@ export default function Home() {
     ];
 
     const users: StoryUser[] = [];
-    // current user first
     users.push({ id: "you", name: anonymous ? undefined : "SHANTANU CLUB", avatar: anonymous ? undefined : avatars[0], kind: anonymous ? "anonymous" : "cosmic", segments: currentUserSegments });
-    // others
     const base = stories.slice(1, 7);
     base.forEach((s) => {
       const kind = anonymous ? "anonymous" : "cosmic";
@@ -116,7 +121,25 @@ export default function Home() {
     return users.filter((u) => u.segments.length > 0);
   };
 
-  const viewerUsers = useMemo(buildViewerUsers, [stories, anonymous]);
+  const [viewerUsers, setViewerUsers] = useState<StoryUser[]>(buildViewerUsers());
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/v1/stories/viewer-feed?anonymous=${anonymous ? '1' : '0'}`);
+        const d = await r.json();
+        if (!aborted && Array.isArray(d?.users)) {
+          sessionStorage.setItem(`viewer_feed_${anonymous ? 'anon' : 'auth'}`, JSON.stringify(d));
+          setViewerUsers(d.users);
+        } else {
+          setViewerUsers(buildViewerUsers());
+        }
+      } catch {
+        setViewerUsers(buildViewerUsers());
+      }
+    })();
+    return () => { aborted = true; };
+  }, [anonymous, stories]);
 
   const [feed, setFeed] = useState<Post[]>([]);
 
@@ -342,18 +365,46 @@ export default function Home() {
         onBack={() => setOpenAdd(false)}
         onClose={() => setOpenAdd(false)}
         baseItem={baseMedia || undefined}
-        onLaunch={(res: ComposerResult) => {
+        onLaunch={async (res: ComposerResult) => {
           try {
-            const entry = { items: res.items, meta: res.meta, createdAt: Date.now() };
+            // Try to upload any data URLs to storage first (fallback to data URLs in dev)
+            const { uploadDataUrl } = await import("@/lib/upload");
+            const processed: typeof res.items = [];
+            let i = 0;
+            for (const it of res.items) {
+              if (typeof it.src === "string" && it.src.startsWith("data:")) {
+                const url = await uploadDataUrl(it.src, `${it.type}-${Date.now()}-${i}`);
+                processed.push({ ...it, src: url || it.src });
+              } else {
+                processed.push(it);
+              }
+              i++;
+            }
+            // Persist locally for offline
+            const entry = { items: processed, meta: res.meta, createdAt: Date.now() };
             const raw = localStorage.getItem("home_stories_user_entries");
             const arr = raw ? JSON.parse(raw) : [];
             arr.unshift(entry);
             localStorage.setItem("home_stories_user_entries", JSON.stringify(arr));
             localStorage.setItem("home_stories_user_new", "1");
             setUserHasNew(true);
+            // Send to server
+            try {
+              await fetch("/api/v1/stories/compose", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items: processed, meta: res.meta }),
+              });
+            } catch {}
           } catch {}
           setBaseMedia(null);
           setOpenAdd(false);
+          // Refresh viewer feed
+          try {
+            const r = await fetch(`/api/v1/stories/viewer-feed?anonymous=${anonymous ? '1' : '0'}`);
+            const d = await r.json();
+            if (Array.isArray(d?.users)) setViewerUsers(d.users);
+          } catch {}
         }}
       />
 

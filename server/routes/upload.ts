@@ -16,8 +16,14 @@ uploadRouter.post("/signed-url", requireAuth, (async (req, res) => {
   const { mime, filename } = schema(req.body || {});
   if (!mime || !filename) return res.status(400).json({ error: "mime and filename required" });
   if (!ALLOWED.has(mime)) return res.status(400).json({ error: "mime not allowed" });
-  const bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.GCS_BUCKET || "";
+  let bucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.GCS_BUCKET || "";
   if (!bucketName) return res.status(503).json({ error: "Storage not configured" });
+  // Normalize common Firebase web hostname to GCS bucket id
+  bucketName = bucketName.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  if (bucketName.endsWith(".firebasestorage.app")) {
+    const project = bucketName.split(".")[0];
+    bucketName = `${project}.appspot.com`;
+  }
   const userId = String((req as any).auth?.sub || "anon");
   const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, "_");
   const objectName = `uploads/${userId}/${Date.now()}-${safeName}`;

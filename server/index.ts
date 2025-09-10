@@ -11,8 +11,8 @@ export function createServer() {
 
   // Middleware
   app.use(cors());
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   // Basic security headers and simple rate limiting
   import('./middlewares/security').then(({ securityHeaders }) => app.use(securityHeaders));
   import('./middlewares/rateLimit').then(({ rateLimit }) => app.use(rateLimit({ windowMs: 1000, max: 20 })));
@@ -95,9 +95,20 @@ export function createServer() {
     app.use("/api/stories", storiesRouter);
   });
 
+  // v1 Stories API (versioned)
+  import("./routes/storiesV1").then((mod: any) => {
+    const r = mod.storiesV1Router || mod.default;
+    if (r) app.use("/api/v1/stories", r);
+  });
+
   // Upload routes
   import("./routes/upload").then(({ uploadRouter }) => {
     app.use("/api/upload", uploadRouter);
+  });
+
+  // Integrations routes
+  import("./routes/integrations").then(({ integrationsRouter }) => {
+    app.use("/api/integrations", integrationsRouter);
   });
 
   // Events routes
@@ -113,6 +124,11 @@ export function createServer() {
   // Live routes
   import("./routes/live").then(({ liveRouter }) => {
     app.use("/api/live", liveRouter);
+  });
+
+  // Spotify route (proxy)
+  import("./routes/spotify").then(({ spotifyRouter }) => {
+    app.use("/api/spotify", spotifyRouter);
   });
 
   // Support routes

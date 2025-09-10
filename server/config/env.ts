@@ -7,6 +7,7 @@ export const env = {
   PORT: Number(process.env.PORT || 8080),
   MONGODB_URI: process.env.MONGODB_URI || "",
   DATABASE_URL: process.env.DATABASE_URL || "",
+  PRISMA_DATABASE_URL: process.env.PRISMA_DATABASE_URL || "",
   PRISMA_LOG_LEVEL: process.env.PRISMA_LOG_LEVEL || "warn",
   JWT_SECRET: process.env.JWT_SECRET || "dev_secret_change_me",
 };

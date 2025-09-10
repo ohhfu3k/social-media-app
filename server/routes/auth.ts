@@ -67,6 +67,8 @@ function normalizeChannelAndId(channel: "email"|"phone", identifier: string) {
   return { channel, id: digits };
 }
 
+const allowDevOtp = (process.env.NODE_ENV !== 'production') || process.env.EXPOSE_OTP === '1';
+
 const authRouter = Router();
 
 authRouter.use(ensureData, ensureOtpStore);
@@ -117,7 +119,8 @@ authRouter.post("/login", (async (req, res) => {
   if (!parse.success) return res.status(400).json({ error: "Invalid input" });
   const { identifier, password } = parse.data as any;
   const isEmail = /@/.test(identifier);
-  const norm = isEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, "");
+  const isPhone = /^\+?\d{6,}$/.test(identifier);
+  const norm = isEmail ? identifier.trim().toLowerCase() : isPhone ? identifier.replace(/\D/g, "") : String(identifier).trim().toLowerCase();
 
   const setCookie = (token: string) => {
     const maxAgeMs = (() => {
@@ -134,7 +137,7 @@ authRouter.post("/login", (async (req, res) => {
   // DB path
   if (dbEnabled && isDbReady()) {
     try {
-      const user = await prisma.user.findFirst({ where: isEmail ? { email: norm } : { phone: norm } });
+      const user = await prisma.user.findFirst({ where: isEmail ? { email: norm } : isPhone ? { phone: norm } : { username: norm } });
       if (user && user.passwordHash && verifyPasswordAny(password, user.passwordHash)) {
         if (user.isActive === false) return res.status(403).json({ error: "Account not verified" });
         const token = signToken({ sub: String(user.id), email: user.email, phone: user.phone, name: user.name });
@@ -149,7 +152,7 @@ authRouter.post("/login", (async (req, res) => {
 
   // File fallback
   const users = await readUsers();
-  const user = users.find((u) => (isEmail ? (u.email||'').toLowerCase() === norm : (u.phone||'').replace(/\D/g,'') === norm));
+  const user = users.find((u) => (isEmail ? (u.email||'').toLowerCase() === norm : isPhone ? (u.phone||'').replace(/\D/g,'') === norm : String(u.username||'').toLowerCase() === norm));
   if (!user || !verifyPasswordAny(password, user.pass)) return res.status(401).json({ error: "Invalid credentials" });
   if (user.isActive === false) return res.status(403).json({ error: "Account not verified" });
   const token = signToken({ sub: user.id, email: user.email, phone: user.phone, name: user.name });
@@ -179,11 +182,12 @@ authRouter.get("/me", requireAuth, (req, res) => {
 });
 
 // Request OTP (email or phone)
-const requestOtpSchema = z.object({ channel: z.enum(["email","phone"]), identifier: z.string().min(3) });
+const requestOtpSchema = z.object({ channel: z.enum(["email","phone"]), identifier: z.string().min(3), honey: z.string().optional() });
 authRouter.post("/request-otp", (async (req, res) => {
   const parse = requestOtpSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: "Invalid input" });
-  const { channel, identifier } = parse.data;
+  const { channel, identifier, honey } = parse.data as any;
+  if (honey && honey.trim()) return res.status(400).json({ error: "Bot detected" });
   const { id } = normalizeChannelAndId(channel, identifier);
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -208,7 +212,7 @@ authRouter.post("/verify-otp", (async (req, res) => {
   const found = all.find((o) => o.id === id && o.channel === channel);
   if (!found) return res.status(400).json({ error: "No OTP requested" });
   if (Date.now() > found.expiresAt) return res.status(400).json({ error: "OTP expired" });
-  if (found.code !== code && !(process.env.NODE_ENV !== 'production' && code === '000000')) return res.status(400).json({ error: "Invalid code" });
+  if (found.code !== code && !(allowDevOtp && code === '000000')) return res.status(400).json({ error: "Invalid code" });
   const rest = all.filter((o) => !(o.id === id && o.channel === channel));
   await writeOtps(rest);
   res.json({ ok: true });
@@ -224,7 +228,7 @@ authRouter.post("/verify", (async (req, res) => {
   const found = all.find((o) => o.id === id && o.channel === channel);
   if (!found) return res.status(400).json({ error: "No OTP requested" });
   if (Date.now() > found.expiresAt) return res.status(400).json({ error: "OTP expired" });
-  if (found.code !== code && !(process.env.NODE_ENV !== 'production' && code === '000000')) return res.status(400).json({ error: "Invalid code" });
+  if (found.code !== code && !(allowDevOtp && code === '000000')) return res.status(400).json({ error: "Invalid code" });
   const rest = all.filter((o) => !(o.id === id && o.channel === channel));
   await writeOtps(rest);
   if (dbEnabled && isDbReady()) {
@@ -271,7 +275,7 @@ authRouter.post("/reset-password", (async (req, res) => {
   const found = all.find((o) => o.id === id && o.channel === channel);
   if (!found) return res.status(400).json({ error: "No OTP requested" });
   if (Date.now() > found.expiresAt) return res.status(400).json({ error: "OTP expired" });
-  if (found.code !== code && !(process.env.NODE_ENV !== 'production' && code === '000000')) return res.status(400).json({ error: "Invalid code" });
+  if (found.code !== code && !(allowDevOtp && code === '000000')) return res.status(400).json({ error: "Invalid code" });
   const rest = all.filter((o) => !(o.id === id && o.channel === channel));
   await writeOtps(rest);
 
@@ -476,6 +480,31 @@ authRouter.post("/reset", (async (req, res) => {
     } catch {}
   }
   return res.status(500).json({ error: "Server error" });
+}) as RequestHandler);
+
+// OAuth start (PKCE) — Google supported if env set
+import crypto from "crypto";
+function b64url(input: Buffer) { return input.toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+authRouter.get("/oauth/:provider", (async (req, res) => {
+  const provider = String(req.params.provider || '').toLowerCase();
+  if (provider !== 'google') return res.status(501).json({ error: 'Provider not supported yet' });
+  const cid = process.env.GOOGLE_CLIENT_ID || '';
+  const redirect = process.env.GOOGLE_REDIRECT_URI || '';
+  if (!cid || !redirect) return res.status(503).json({ error: 'OAuth not configured' });
+  const verifier = b64url(crypto.randomBytes(32));
+  const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
+  const state = b64url(crypto.randomBytes(16));
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', cid);
+  url.searchParams.set('redirect_uri', redirect);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid email profile');
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  url.searchParams.set('state', state);
+  res.cookie?.('pkce_verifier', verifier, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV==='production', maxAge: 10*60*1000, path: '/' } as any);
+  res.cookie?.('oauth_state', state, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV==='production', maxAge: 10*60*1000, path: '/' } as any);
+  return res.json({ url: url.toString() });
 }) as RequestHandler);
 
 export { authRouter };

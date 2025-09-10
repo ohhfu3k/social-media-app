@@ -35,6 +35,24 @@ import Live from "./pages/Live";
 import Support from "./pages/Support";
 import Marketplace from "./pages/Marketplace";
 import Admin from "./pages/Admin";
+import ResetPassword from "./pages/ResetPassword";
+import Reels from "./pages/Reels";
+import DirectThread from "./pages/DirectThread";
+import PostPDetails from "./pages/PostPDetails";
+import PostComments from "./pages/PostComments";
+import OAuthStart from "./pages/OAuthStart";
+import VerifyEmail from "./pages/VerifyEmail";
+import IdentityVerify from "./pages/IdentityVerify";
+import AppealSuspended from "./pages/AppealSuspended";
+import LoginMagicLink from "./pages/LoginMagicLink";
+import LoginSMS from "./pages/LoginSMS";
+import LoginTwoFactor from "./pages/LoginTwoFactor";
+import SettingsSecurity from "./pages/SettingsSecurity";
+import SettingsPrivacy from "./pages/SettingsPrivacy";
+import SettingsNotifications from "./pages/SettingsNotifications";
+import SettingsAccountDelete from "./pages/SettingsAccountDelete";
+import SettingsAccountExport from "./pages/SettingsAccountExport";
+import SettingsConnectedApps from "./pages/SettingsConnectedApps";
 import { AppStateProvider } from "./context/app-state";
 
 const queryClient = new QueryClient();
@@ -49,22 +67,46 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/home" element={<Home />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/setup" element={<ProfileSetup />} />
+            <Route path="/login" element={<Index />} />
+            <Route path="/login/passwordless" element={<LoginMagicLink />} />
+            <Route path="/login/sms" element={<LoginSMS />} />
+            <Route path="/login/twofactor" element={<LoginTwoFactor />} />
+            <Route path="/signup" element={<Index />} />
             <Route path="/forgot" element={<ForgotPassword />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/search" element={<Search />} />
             <Route path="/messages" element={<Messaging />} />
+            <Route path="/direct/inbox" element={<Messaging />} />
+            <Route path="/direct/thread/:id" element={<DirectThread />} />
             <Route path="/create" element={<CreatePost />} />
+            <Route path="/create/post" element={<CreatePost />} />
+            <Route path="/create/story" element={<Stories />} />
+            <Route path="/create/reel" element={<Reels />} />
+            <Route path="/live/start" element={<Live />} />
             <Route path="/post/:id" element={<PostDetails />} />
+            <Route path="/p/:postId" element={<PostPDetails />} />
+            <Route path="/p/:postId/comments" element={<PostComments />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/explore" element={<Explore />} />
-            <Route path="/profile/view/:username" element={<UserProfileView />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/reels" element={<Reels />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/setup" element={<ProfileSetup />} />
             <Route path="/profile/edit" element={<EditProfile />} />
+            <Route path="/profile/view/:username" element={<UserProfileView />} />
+            <Route path="/profile/:username" element={<UserProfileView />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/security" element={<SettingsSecurity />} />
+            <Route path="/settings/privacy" element={<SettingsPrivacy />} />
+            <Route path="/settings/notifications" element={<SettingsNotifications />} />
+            <Route path="/settings/account/delete" element={<SettingsAccountDelete />} />
+            <Route path="/settings/account/export" element={<SettingsAccountExport />} />
+            <Route path="/settings/connected-apps" element={<SettingsConnectedApps />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/stories" element={<Stories />} />
             <Route path="/stories/add/:userId" element={<Stories />} />
             <Route path="/stories/view/:userId" element={<StoriesView />} />
+            <Route path="/stories/:userId/:storyId" element={<StoriesView />} />
             <Route path="/blips" element={<BlipsView />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/500" element={<Error500 />} />
@@ -75,7 +117,12 @@ const App = () => (
             <Route path="/live" element={<Live />} />
             <Route path="/support" element={<Support />} />
             <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/shop" element={<Marketplace />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/login/oauth/:provider" element={<OAuthStart />} />
+            <Route path="/signup/verify-email" element={<VerifyEmail />} />
+            <Route path="/verify/identity" element={<IdentityVerify />} />
+            <Route path="/appeal/suspended" element={<AppealSuspended />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

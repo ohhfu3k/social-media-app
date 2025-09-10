@@ -42,6 +42,8 @@ const saveSchema = z.object({
   isPrivate: z.boolean().default(false),
   emailVerified: z.boolean().optional(),
   avatarDataUrl: z.string().url().or(z.string().startsWith("data:")).optional(),
+  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  accountType: z.enum(["personal","creator","business"]).optional(),
 });
 
 export const profileRouter = Router();
@@ -162,6 +164,8 @@ profileRouter.post("/save", async (req, res) => {
         isPrivate: data.isPrivate,
         isActive: typeof data.emailVerified === 'boolean' ? data.emailVerified : undefined,
         avatar: data.avatarDataUrl || "/placeholder.svg",
+        dob: data.dob || undefined,
+        accountType: data.accountType || undefined,
         linkedStars: 0,
         starlit: 0,
         updated_at: serverTimestamp(),
@@ -211,6 +215,8 @@ profileRouter.post("/save", async (req, res) => {
           isPrivate: data.isPrivate,
           isActive: typeof data.emailVerified === 'boolean' ? data.emailVerified : undefined,
           avatar: data.avatarDataUrl || undefined,
+          dob: data.dob || undefined,
+          accountType: data.accountType || undefined,
         },
         create: {
           id: String(auth.sub),
@@ -226,6 +232,8 @@ profileRouter.post("/save", async (req, res) => {
           isPrivate: data.isPrivate,
           isActive: typeof data.emailVerified === 'boolean' ? data.emailVerified : false,
           avatar: data.avatarDataUrl || "/placeholder.svg",
+          dob: data.dob || undefined,
+          accountType: data.accountType || undefined,
         }
       });
       return res.json({ ok: true, profile: {

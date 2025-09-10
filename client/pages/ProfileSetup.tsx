@@ -32,6 +32,8 @@ export default function ProfileSetup() {
   const [pronoun, setPronoun] = useState(pronouns[3]);
   const [theme, setThemeChoice] = useState<typeof themes[number]["key"]>(themes[0].key);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [dob, setDob] = useState("");
+  const [accountType, setAccountType] = useState<'personal'|'creator'|'business'>('personal');
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -105,6 +107,8 @@ export default function ProfileSetup() {
           isPrivate,
           emailVerified,
           avatarDataUrl,
+          dob: dob || undefined,
+          accountType,
         }),
       });
     } catch {}
@@ -190,6 +194,20 @@ export default function ProfileSetup() {
               <input value={location} onChange={(e)=> setLocation(e.target.value)} className="h-10 px-3 rounded-md bg-background border border-white/10 flex-1 min-w-[180px]" placeholder="Auto-detected" />
               <select value={timezone} onChange={(e)=> setTimezone(e.target.value)} className="h-10 px-2 rounded-md bg-background border border-white/10 min-w-[180px]">
                 {timezones.map(tz => (<option key={tz} value={tz}>{tz}</option>))}
+              </select>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs">Date of Birth</label>
+              <input type="date" value={dob} onChange={(e)=>setDob(e.target.value)} className="h-10 w-full px-3 rounded-md bg-background border border-white/10" />
+            </div>
+            <div>
+              <label className="text-xs">Account Type</label>
+              <select value={accountType} onChange={(e)=>setAccountType(e.target.value as any)} className="h-10 w-full px-2 rounded-md bg-background border border-white/10">
+                <option value="personal">Personal</option>
+                <option value="creator">Creator</option>
+                <option value="business">Business</option>
               </select>
             </div>
           </div>

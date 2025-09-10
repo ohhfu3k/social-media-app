@@ -117,7 +117,7 @@ export default function TopBar({ className }: { className?: string }) {
 
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => navigate('/messages')}
+            onClick={() => navigate('/direct/inbox')}
             className="h-8 w-8 rounded-full border border-white/10 hover:bg-white/5 grid place-items-center focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Messages"
             title="Messages"

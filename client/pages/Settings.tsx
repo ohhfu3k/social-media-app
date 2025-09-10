@@ -1,19 +1,24 @@
-import { useState } from "react";
 import TopBar from "@/components/galaxy/TopBar";
 import Navbar from "@/components/galaxy/Navbar";
+import { useEffect, useState } from "react";
 import { useAppState } from "@/context/app-state";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
   const { theme, setTheme, twoFactor, setTwoFactor } = useAppState();
-  const [tab, setTab] = useState<'account'|'privacy'|'notifications'|'theme'|'manage'>('account');
+  const initialTab = (() => {
+    try { const usp = new URLSearchParams(window.location.search); const t = usp.get('tab') as any; if (t && ['account','privacy','notifications','theme','manage'].includes(t)) return t; } catch {}
+    return 'account';
+  })() as 'account'|'privacy'|'notifications'|'theme'|'manage';
+  const [tab, setTab] = useState<'account'|'privacy'|'notifications'|'theme'|'manage'>(initialTab);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-galaxy text-foreground">
+      {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
       <TopBar />
       <section className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         <div className="flex gap-2">
@@ -51,7 +56,18 @@ export default function Settings() {
 
             <div className="pt-3 border-t border-white/10" />
             <button
-              onClick={() => { localStorage.removeItem('galaxy-auth'); navigate('/'); }}
+              onClick={async () => {
+                try {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                } catch {}
+                try {
+                  localStorage.removeItem('galaxy-auth');
+                  localStorage.removeItem('galaxy-token');
+                  localStorage.removeItem('galaxy-refresh');
+                  localStorage.removeItem('galaxy-2fa');
+                } catch {}
+                navigate('/login', { replace: true });
+              }}
               className="px-3 h-9 rounded-md border border-white/10 w-max"
             >
               Logout
@@ -91,12 +107,8 @@ export default function Settings() {
         {tab==='manage' && (
           <div className="rounded-2xl border border-white/10 bg-card/70 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="text-sm font-medium mb-2">Hobbies</div>
-              <div className="flex flex-wrap gap-2">
-                {["Reading","Hiking","Coding","Music"].map(h => (
-                  <span key={h} className="text-xs px-2 py-1 rounded-full border border-white/10 bg-card/70">{h}</span>
-                ))}
-              </div>
+              <div className="text-sm font-medium mb-2">Integrations</div>
+              <IntegrationsPanel />
             </div>
             <div>
               <div className="text-sm font-medium mb-2">Badges</div>
@@ -110,6 +122,58 @@ export default function Settings() {
         )}
       </section>
       <Navbar />
+    </div>
+  );
+}
+
+function IntegrationsPanel() {
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<any>(null);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/integrations/status");
+        const d = await r.json();
+        setStatus(d);
+      } finally { setLoading(false); }
+    })();
+  }, []);
+  const triggerNetlify = async () => {
+    setMsg("");
+    const r = await fetch("/api/integrations/netlify/deploy", { method: "POST" });
+    const d = await r.json().catch(()=>({}));
+    if (r.ok) setMsg("Netlify build triggered"); else setMsg(d.error || "Failed to trigger");
+  };
+  if (loading) return <div className="text-sm text-muted-foreground">Checking status…</div>;
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="rounded-md border border-white/10 p-3">
+        <div className="font-medium">Storage</div>
+        <div className="text-xs text-muted-foreground">{status?.storage?.configured?"Configured":"Not configured"} {status?.storage?.bucket?`(${status.storage.bucket})`:""}</div>
+      </div>
+      <div className="rounded-md border border-white/10 p-3">
+        <div className="font-medium">Database (Neon/Postgres)</div>
+        <div className="text-xs text-muted-foreground">{status?.database?.urlPresent?"Configured":"Not configured"}</div>
+        <div className="mt-2 flex gap-2">
+          <a href="#open-mcp-popover" className="px-3 h-8 rounded-md border border-white/10">Connect Neon</a>
+        </div>
+      </div>
+      <div className="rounded-md border border-white/10 p-3">
+        <div className="font-medium">Monitoring (Sentry)</div>
+        <div className="text-xs text-muted-foreground">{status?.sentry?.configured?"Configured":"Not configured"}</div>
+        <div className="mt-2 flex gap-2">
+          <a href="#open-mcp-popover" className="px-3 h-8 rounded-md border border-white/10">Connect Sentry</a>
+        </div>
+      </div>
+      <div className="rounded-md border border-white/10 p-3">
+        <div className="font-medium">Deploy (Netlify)</div>
+        <div className="text-xs text-muted-foreground">{status?.netlify?.configured?"Build hook set":"Build hook not set"}</div>
+        <div className="mt-2 flex gap-2">
+          <button onClick={triggerNetlify} className="px-3 h-8 rounded-md bg-primary text-primary-foreground disabled:opacity-50" disabled={!status?.netlify?.configured}>Trigger Netlify Deploy</button>
+        </div>
+        {msg && <div className="text-xs mt-2">{msg}</div>}
+      </div>
     </div>
   );
 }

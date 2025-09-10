@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import TopBar from "@/components/galaxy/TopBar";
 import { Eye, EyeOff } from "lucide-react";
 import { useAppState } from "@/context/app-state";
@@ -301,10 +301,13 @@ export default function Index() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <label className="inline-flex items-center gap-2"><input type="checkbox" checked={rememberLogin} onChange={(e)=>setRememberLogin(e.target.checked)} /> Remember me</label>
-                  <button type="button" onClick={() => navigate('/forgot')} className="inline-flex items-center gap-1 text-cyan-300 hover:underline" aria-label="Account recovery" title="Account recovery">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l2-2 4 4 8-8 2 2-10 10-4-4z"/></svg>
-                    Forgot password?
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <Link to="/login/passwordless" className="text-cyan-300 hover:underline">Use a magic link</Link>
+                    <button type="button" onClick={() => navigate('/forgot')} className="inline-flex items-center gap-1 text-cyan-300 hover:underline" aria-label="Account recovery" title="Account recovery">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l2-2 4 4 8-8 2 2-10 10-4-4z"/></svg>
+                      Forgot password?
+                    </button>
+                  </div>
                 </div>
                 <button className="w-full h-11 rounded-md bg-primary text-primary-foreground hover:brightness-110 transition">Orbit Access</button>
                 <div className="text-sm text-center text-muted-foreground">
